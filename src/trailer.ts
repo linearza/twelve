@@ -2,12 +2,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { MAX_CONCURRENT, narrate, score, soundEffect } from "./elevenlabs.js";
 import { planTrailer, type TrailerPlan } from "./plan.js";
-import { durationOf, render, shrinkImage, type AudioClip } from "./render.js";
+import { durationOf, render, shrinkImage, type AudioClip, type Segment } from "./render.js";
 
 type MediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
-const NARRATION_START = 1.5;
-const LINE_GAP = 0.7;
+const NARRATION_START = 1.5; // breathing room before the first line
+const LINE_LEAD = 0.25; // after each cut, before the narrator speaks
+const LINE_TAIL = 0.5; // after each line, before the next cut
+const CARD_SECONDS = 1.4;
+const MAX_CARDS = 2;
 const TITLE_HOLD = 4;
 // Keeps credit use predictable on the free plan (~10k credits/month).
 const MAX_SOUND_EFFECTS = 4;
@@ -64,25 +67,59 @@ export async function makeTrailer(
   const sfxFiles = files.slice(plan.narration.length, -1);
   const scoreFile = files.at(-1)!;
 
-  // Lay the narration out back to back, then hold on the title card.
+  onStep("Cutting the trailer");
+  const video = await cutTrailer({ dir, plan, image: imageFile, voiceFiles, sfxFiles, scoreFile, scoreLoops });
+  return { plan, video };
+}
+
+// Lays the recorded audio out against the shot list and renders the MP4. Kept
+// separate so an existing job can be re-cut without spending any credits.
+export async function cutTrailer(job: {
+  dir: string;
+  plan: TrailerPlan;
+  image: string;
+  voiceFiles: string[];
+  sfxFiles: string[];
+  scoreFile: string;
+  scoreLoops: boolean;
+}): Promise<string> {
+  const { plan, voiceFiles, sfxFiles } = job;
+  // One shot per narration line, with optional text cards in between, then the title.
+  const segments: Segment[] = [];
   const clips: AudioClip[] = [];
-  let t = NARRATION_START;
-  for (const file of voiceFiles) {
-    clips.push({ file, start: t, volume: 1.0 });
-    t += (await durationOf(file)) + LINE_GAP;
+  let t = 0;
+  let cards = 0;
+  for (const [i, file] of voiceFiles.entries()) {
+    const shot = plan.shots[i] ?? { card: "", focus_x: 0.5, focus_y: 0.5, zoom: 1.3, move: "push_in" as const };
+    if (shot.card.trim() && cards++ < MAX_CARDS) {
+      segments.push({ kind: "card", duration: CARD_SECONDS, text: shot.card.trim() });
+      t += CARD_SECONDS;
+    }
+    const lead = i === 0 ? NARRATION_START : LINE_LEAD;
+    const length = lead + (await durationOf(file)) + LINE_TAIL;
+    clips.push({ file, start: t + lead, volume: 1.0 });
+    segments.push({ kind: "shot", duration: length, focusX: shot.focus_x, focusY: shot.focus_y, zoom: shot.zoom, move: shot.move });
+    t += length;
   }
   const titleAt = t;
   const duration = titleAt + TITLE_HOLD;
+  segments.push({ kind: "shot", duration: TITLE_HOLD, focusX: 0.5, focusY: 0.5, zoom: 1.15, move: "pull_out" });
 
   // Claude places effects on a nominal 20s timeline; stretch that to the real length.
+  // Impacts snap to the nearest cut so the shake and flash land on the edit.
+  const cuts = segments.slice(0, -1).map((_, i) => segments.slice(0, i + 1).reduce((sum, s) => sum + s.duration, 0));
+  const impacts: number[] = [];
   const scale = titleAt / 20;
   plan.sound_effects.forEach((fx, i) => {
-    clips.push({ file: sfxFiles[i], start: Math.min(fx.at_seconds * scale, duration - 1), volume: 0.7 });
+    let start = Math.min(fx.at_seconds * scale, duration - 1);
+    if (fx.impact) {
+      start = cuts.reduce((best, cut) => (Math.abs(cut - start) < Math.abs(best - start) ? cut : best), cuts[0]);
+      impacts.push(start);
+    }
+    clips.push({ file: sfxFiles[i], start, volume: 0.7 });
   });
 
-  clips.push({ file: scoreFile, start: 0, volume: 0.35, loop: scoreLoops });
+  clips.push({ file: job.scoreFile, start: 0, volume: 0.35, loop: job.scoreLoops });
 
-  onStep("Cutting the trailer");
-  const video = await render({ dir, image: imageFile, clips, duration, titleAt, title: plan.title, tagline: plan.tagline });
-  return { plan, video };
+  return render({ dir: job.dir, image: job.image, segments, clips, impacts, titleAt, title: plan.title, tagline: plan.tagline });
 }

@@ -22,9 +22,23 @@ export const TrailerPlan = z.object({
         prompt: z.string().describe("A single, concrete sound for a sound-effects model, e.g. 'deep cinematic boom with sub bass'"),
         at_seconds: z.number().describe("When it hits, on a 0-20 second timeline"),
         duration_seconds: z.number().describe("Length in seconds, 1-4"),
+        impact: z.boolean().describe("True for hits (booms, slams, stingers): these land on a cut with a camera shake and a flash"),
       }),
     )
-    .describe("3-4 sound effects: things visible in the image plus trailer staples (whooshes, booms, risers)"),
+    .describe("3-4 sound effects: things visible in the image plus trailer staples (whooshes, booms, risers). Make 1-2 of them impacts."),
+  shots: z
+    .array(
+      z.object({
+        card: z
+          .string()
+          .describe("Optional 1-3 word black text card shown before this shot, e.g. 'THIS FALL'. Empty string for none; use on at most two shots."),
+        focus_x: z.number().describe("Horizontal centre of what the shot frames: 0 is the left edge of the image, 1 the right"),
+        focus_y: z.number().describe("Vertical centre: 0 is the top of the image, 1 the bottom"),
+        zoom: z.number().describe("How tight the shot is: 1.2 is a wide shot, 2.5 an extreme close-up"),
+        move: z.enum(["push_in", "pull_out", "pan_left", "pan_right"]),
+      }),
+    )
+    .describe("Exactly one shot per narration line, in order: what the camera frames while that line plays. Frame the details each line talks about and vary the moves."),
   music_prompt: z.string().describe("Instrumental trailer music description matching the genre, no vocals"),
 });
 export type TrailerPlan = z.infer<typeof TrailerPlan>;

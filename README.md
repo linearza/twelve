@@ -29,9 +29,9 @@ One photo of a puppy in, *The Long Stare* out:
 
 ## How it works
 
-1. **Claude** (Opus) looks at the image and writes the trailer: title, tagline, voiceover lines, timed sound-effect cues and a music brief. It uses the Claude API if `ANTHROPIC_API_KEY` is set, otherwise your local [Claude Code](https://claude.com/claude-code) login (`claude -p`), so no API credits are needed.
+1. **Claude** (Opus) looks at the image and writes the trailer: title, tagline, voiceover lines, a shot list (where the camera frames, how tight, which way it moves, plus the odd text card), timed sound-effect cues and a music brief. It uses the Claude API if `ANTHROPIC_API_KEY` is set, otherwise your local [Claude Code](https://claude.com/claude-code) login (`claude -p`), so no API credits are needed.
 2. **ElevenLabs** voices the narration (Text to Speech) and generates each sound effect plus a seamless 10s loop for the score (Sound Effects). On a paid plan, set `ELEVENLABS_MUSIC=1` to compose a real score with the Music API.
-3. **ffmpeg** (bundled via `ffmpeg-static`) lays the narration out back to back, places the effects on the timeline, mixes everything to -14 LUFS, and renders a letterboxed Ken Burns video with a title card.
+3. **ffmpeg** (bundled via `ffmpeg-static`) cuts one shot per narration line out of the photo (push-ins, pull-outs and pans on the details Claude picked), drops in black text cards, lands impact sounds on the cuts with a camera shake and white flash, adds grain, flicker and a vignette, mixes everything to -14 LUFS and ends on a title card.
 
 ## Setup
 
