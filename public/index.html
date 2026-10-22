@@ -27,6 +27,11 @@
     h1 { font-family: Anton, Impact, sans-serif; font-weight: 400; font-size: clamp(48px, 10vw, 96px); line-height: .95; margin: 8px 0 12px; text-transform: uppercase; }
     .lede { color: var(--muted); max-width: 52ch; margin: 0 0 32px; }
 
+    .styles { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+    .styles button { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--muted); padding: 8px 16px; border-radius: 999px; font: 600 14px Inter, sans-serif; cursor: pointer; }
+    .styles button:hover { color: var(--text); }
+    .styles button[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #1a1408; }
+
     .drop {
       display: grid; place-items: center; text-align: center; gap: 8px;
       min-height: 260px; padding: 24px; border: 1.5px dashed var(--line); border-radius: 14px;
@@ -55,6 +60,32 @@
     .actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
     .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 10px 18px; border-radius: 999px; font: 600 14px Inter, sans-serif; cursor: pointer; text-decoration: none; }
     .btn.primary { background: var(--gold); border-color: var(--gold); color: #1a1408; }
+    .btn:hover { border-color: var(--gold); }
+    .btn.danger:hover { border-color: #ff8a7a; color: #ff8a7a; }
+    .btn[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
+    .spacer { flex: 1; }
+    [hidden] { display: none !important; }
+
+    .library { margin-top: 64px; }
+    .library header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .library h2 { font-family: Anton, Impact, sans-serif; font-weight: 400; font-size: 32px; margin: 0; text-transform: uppercase; }
+    .filter { display: flex; gap: 6px; }
+    .filter button { appearance: none; border: 0; background: none; color: var(--muted); font: 600 13px Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; padding: 4px 8px; }
+    .filter button[aria-pressed="true"] { color: var(--gold); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+    .card { position: relative; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); cursor: pointer; transition: border-color .2s; }
+    .card:hover, .card.current { border-color: var(--gold); }
+    .card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #000; }
+    .card .info { padding: 10px 12px 12px; }
+    .card .name { font-family: Anton, Impact, sans-serif; font-size: 18px; text-transform: uppercase; line-height: 1.1; }
+    .card .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .card .tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
+    .card .tools button { appearance: none; width: 30px; height: 30px; border-radius: 50%; border: 0; background: #000b; color: var(--text); font-size: 15px; line-height: 1; cursor: pointer; }
+    .card .tools .del { opacity: 0; transition: opacity .2s; }
+    .card:hover .tools .del, .card .tools .del:focus-visible { opacity: 1; }
+    .card .tools .del:hover { color: #ff8a7a; }
+    .card .tools .fav[aria-pressed="true"] { color: var(--gold); }
+    .empty { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -63,15 +94,16 @@
     <h1>Twelve</h1>
     <p class="lede">Drop in any photo — your desk, the team lunch, the office plant — and get back a dramatic movie trailer with narration, sound design and a score.</p>
 
-    <label class="drop" id="drop">
-      <input type="file" id="file" accept="image/jpeg,image/png,image/gif,image/webp" />
-      <div id="dropInner">
-        <strong>Drop an image here</strong><br />
-        <span>or click to choose · JPEG, PNG, GIF, WebP · up to 25 MB</span>
-      </div>
-    </label>
+    <section id="create">
+      <div class="styles" id="styles" role="group" aria-label="Trailer style"></div>
 
-    <div class="status" id="status"><div class="reel"></div><span id="step"></span></div>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/jpeg,image/png,image/gif,image/webp" />
+        <div id="dropInner"></div>
+      </label>
+
+      <div class="status" id="status"><div class="reel"></div><span id="step"></span></div>
+    </section>
 
     <section class="result" id="result">
       <video id="video" controls playsinline></video>
@@ -81,9 +113,24 @@
       </div>
       <blockquote id="script"></blockquote>
       <div class="actions">
-        <a class="btn primary" id="download" download="trailer.mp4">Download MP4</a>
-        <button class="btn" id="again">Make another</button>
+        <a class="btn" id="download" download="trailer.mp4">Download MP4</a>
+        <button class="btn" id="favourite" aria-pressed="false">☆ Favourite</button>
+        <button class="btn danger" id="delete">Delete</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="new">+ New trailer</button>
       </div>
+    </section>
+
+    <section class="library" id="library" hidden>
+      <header>
+        <h2>Library</h2>
+        <div class="filter" role="group" aria-label="Show">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="favourites" aria-pressed="false">★ Favourites</button>
+        </div>
+      </header>
+      <div class="grid" id="grid"></div>
+      <p class="empty" id="empty" hidden></p>
     </section>
   </main>
 
@@ -91,15 +138,60 @@
     const $ = (id) => document.getElementById(id);
     const drop = $("drop"), fileInput = $("file"), status = $("status"), step = $("step"), result = $("result");
     let busy = false;
+    let style = "epic";
+
+    fetch("/api/styles").then((r) => r.json()).then((styles) => {
+      $("styles").replaceChildren(...styles.map(({ id, label }) => {
+        const button = Object.assign(document.createElement("button"), { type: "button", textContent: label });
+        button.setAttribute("aria-pressed", id === style);
+        button.addEventListener("click", () => {
+          style = id;
+          $("styles").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b === button));
+        });
+        return button;
+      }));
+    });
 
     ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
     drop.addEventListener("drop", (ev) => ev.dataTransfer.files[0] && start(ev.dataTransfer.files[0]));
     fileInput.addEventListener("change", () => fileInput.files[0] && start(fileInput.files[0]));
-    $("again").addEventListener("click", () => { result.classList.remove("show"); fileInput.value = ""; reset(); });
+
+    let entries = [];   // the library, newest first
+    let current = null; // the entry on the main stage, if any
+    let filter = "all";
+
+    $("new").addEventListener("click", () => {
+      showCreate();
+      history.replaceState(null, "", location.pathname);
+    });
+    $("favourite").addEventListener("click", () => current && setFavourite(current, !current.favourite));
+    $("delete").addEventListener("click", () => current && remove(current));
+    document.querySelectorAll(".filter button").forEach((button) => button.addEventListener("click", () => {
+      filter = button.dataset.filter;
+      document.querySelectorAll(".filter button").forEach((b) => b.setAttribute("aria-pressed", b === button));
+      renderLibrary();
+    }));
+    window.addEventListener("hashchange", openFromHash);
 
     function reset() {
       $("dropInner").innerHTML = '<strong>Drop an image here</strong><br><span>or click to choose · JPEG, PNG, GIF, WebP · up to 25 MB</span>';
+    }
+    reset();
+
+    // The drop area and the finished trailer take turns on the main stage.
+    function showCreate() {
+      current = null;
+      $("video").pause();
+      result.classList.remove("show");
+      $("create").hidden = false;
+      // A trailer still being made keeps its preview and progress.
+      if (!busy) {
+        fileInput.value = "";
+        status.classList.remove("show");
+        reset();
+      }
+      renderLibrary();
     }
 
     function setStep(text, isError = false) {
@@ -112,7 +204,6 @@
     async function start(file) {
       if (busy) return;
       busy = true;
-      result.classList.remove("show");
       const preview = document.createElement("img");
       preview.src = URL.createObjectURL(file);
       $("dropInner").replaceChildren(preview);
@@ -120,11 +211,15 @@
 
       try {
         const body = new FormData();
+        body.append("style", style);
         body.append("image", file);
         const res = await fetch("/api/trailers", { method: "POST", body });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        show(await poll(data.id));
+        await poll(data.id);
+        busy = false;
+        await loadLibrary();
+        location.hash = data.id;
       } catch (err) {
         setStep(err.message, true);
       } finally {
@@ -142,17 +237,102 @@
       }
     }
 
-    function show({ plan, video }) {
-      status.classList.remove("show");
-      $("video").src = video;
+    function show(entry) {
+      const { plan, video } = entry;
+      current = entry;
+      $("create").hidden = true;
+      if (!$("video").src.endsWith(video)) $("video").src = video;
       $("download").href = video;
       $("download").download = plan.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4";
       $("title").textContent = plan.title;
       $("genre").textContent = plan.genre;
-      $("script").replaceChildren(...plan.narration.map((line) => Object.assign(document.createElement("p"), { textContent: `“${line}”` })));
+      // Audio tags like [whispers] direct the narrator; they aren't part of the script.
+      const clean = (text) => text.replace(/\[[^\]]*\]\s*/g, "").trim();
+      const lines = plan.narration.map((line) => `“${clean(line)}”`);
+      if (plan.scene) lines.splice(plan.scene.after_line + 1, 0, ...plan.scene.lines.map((l) => `${l.character}: “${clean(l.text)}”`));
+      $("script").replaceChildren(...lines.map((line) => Object.assign(document.createElement("p"), { textContent: line })));
       result.classList.add("show");
-      $("video").play().catch(() => {});
+      renderFavourite();
+      renderLibrary();
     }
+
+    function renderFavourite() {
+      $("favourite").setAttribute("aria-pressed", current.favourite);
+      $("favourite").textContent = current.favourite ? "★ Favourite" : "☆ Favourite";
+    }
+
+    async function loadLibrary() {
+      entries = await (await fetch("/api/library")).json();
+      renderLibrary();
+    }
+
+    function openFromHash() {
+      const id = decodeURIComponent(location.hash.slice(1));
+      const entry = entries.find((e) => e.id === id);
+      if (entry) {
+        show(entry);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (current) {
+        showCreate();
+      }
+    }
+
+    function renderLibrary() {
+      const shown = filter === "favourites" ? entries.filter((e) => e.favourite) : entries;
+      $("library").hidden = entries.length === 0;
+      $("empty").hidden = shown.length > 0;
+      $("empty").textContent = "No favourites yet. Star a trailer to keep it here.";
+      $("grid").replaceChildren(...shown.map((entry) => {
+        const card = document.createElement("article");
+        card.className = "card" + (entry === current ? " current" : "");
+        card.innerHTML = `
+          <img alt="" loading="lazy" />
+          <div class="tools">
+            <button class="del" type="button" title="Delete permanently" aria-label="Delete permanently">🗑</button>
+            <button class="fav" type="button"></button>
+          </div>
+          <div class="info"><div class="name"></div><div class="sub"></div></div>`;
+        if (entry.poster) card.querySelector("img").src = entry.poster;
+        card.querySelector(".name").textContent = entry.plan.title;
+        card.querySelector(".sub").textContent = [entry.plan.genre, new Date(entry.createdAt).toLocaleDateString()].join(" · ");
+        const fav = card.querySelector(".fav");
+        fav.textContent = entry.favourite ? "★" : "☆";
+        fav.title = entry.favourite ? "Remove from favourites" : "Add to favourites";
+        fav.setAttribute("aria-label", fav.title);
+        fav.setAttribute("aria-pressed", entry.favourite);
+        fav.addEventListener("click", (ev) => { ev.stopPropagation(); setFavourite(entry, !entry.favourite); });
+        card.querySelector(".del").addEventListener("click", (ev) => { ev.stopPropagation(); remove(entry); });
+        card.addEventListener("click", () => (location.hash = entry.id));
+        return card;
+      }));
+    }
+
+    async function setFavourite(entry, favourite) {
+      const res = await fetch(`/api/library/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favourite }),
+      });
+      if (!res.ok) return alert((await res.json()).error);
+      entry.favourite = favourite;
+      if (entry === current) renderFavourite();
+      renderLibrary();
+    }
+
+    async function remove(entry) {
+      if (!confirm(`Permanently delete “${entry.plan.title}”? This can't be undone.`)) return;
+      const res = await fetch(`/api/library/${entry.id}`, { method: "DELETE" });
+      if (!res.ok) return alert((await res.json()).error);
+      entries = entries.filter((e) => e !== entry);
+      if (entry === current) {
+        showCreate();
+        history.replaceState(null, "", location.pathname);
+      } else {
+        renderLibrary();
+      }
+    }
+
+    loadLibrary().then(openFromHash);
   </script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { promisify } from "node:util";
+import type { Style } from "./styles.js";
 
 // ffmpeg-static is CommonJS and exports the binary path directly.
 const ffmpegPath: string | null = createRequire(import.meta.url)("ffmpeg-static");
@@ -22,6 +23,7 @@ export interface AudioClip {
   start: number; // seconds into the trailer
   volume: number;
   loop?: boolean; // repeat until the trailer ends
+  voice?: boolean; // narration: everything else ducks under it
 }
 
 export type Move = "push_in" | "pull_out" | "pan_left" | "pan_right";
@@ -39,6 +41,7 @@ export interface RenderInput {
   impacts: number[]; // seconds where the camera shakes and the frame flashes
   titleAt: number;
   title: string;
+  look: Style["look"];
   tagline: string;
 }
 
@@ -47,7 +50,7 @@ const FPS = 30;
 // Decodes the whole file so the length is exact (MP3 headers only give an estimate).
 export async function durationOf(file: string): Promise<number> {
   if (!ffmpegPath) throw new Error("ffmpeg-static has no binary for this platform");
-  const { stderr } = await run(ffmpegPath, ["-hide_banner", "-i", file, "-f", "null", "-"]);
+  const { stderr } = await run(ffmpegPath, ["-nostdin", "-hide_banner", "-i", file, "-f", "null", "-"]);
   const times = [...stderr.matchAll(/time=(\d+):(\d+):([\d.]+)/g)];
   const last = times.at(-1);
   if (!last) throw new Error(`Could not read the duration of ${file}`);
@@ -58,7 +61,7 @@ export async function durationOf(file: string): Promise<number> {
 export async function shrinkImage(input: string, output: string): Promise<void> {
   if (!ffmpegPath) throw new Error("ffmpeg-static has no binary for this platform");
   await run(ffmpegPath, [
-    "-y", "-loglevel", "error", "-i", input,
+    "-nostdin", "-y", "-loglevel", "error", "-i", input,
     "-vf", "scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease",
     "-frames:v", "1", "-q:v", "3", output,
   ]);
@@ -69,7 +72,7 @@ const quote = (p: string) => `'${p.replace(/\\/g, "/").replace(/'/g, "'\\''").re
 
 // ffmpeg -i with no output exits non-zero but still prints the stream info.
 async function imageSize(file: string): Promise<{ width: number; height: number }> {
-  const { stderr } = await run(ffmpegPath!, ["-hide_banner", "-i", file]).catch((err) => err);
+  const { stderr } = await run(ffmpegPath!, ["-nostdin", "-hide_banner", "-i", file]).catch((err) => err);
   const match = /, (\d{2,5})x(\d{2,5})[, ]/.exec(stderr ?? "");
   if (!match) throw new Error(`Could not read the size of ${file}`);
   return { width: Number(match[1]), height: Number(match[2]) };
@@ -104,7 +107,7 @@ export async function render(input: RenderInput): Promise<string> {
   const font = FONT_CANDIDATES.find((f) => f && existsSync(f));
   if (!font) throw new Error("No bold font found - set FONT_FILE in .env to a .ttf path");
 
-  const { dir, image, segments, clips, impacts, titleAt } = input;
+  const { dir, image, segments, clips, impacts, titleAt, look } = input;
   const titleFile = path.join(dir, "title.txt");
   const taglineFile = path.join(dir, "tagline.txt");
   await writeFile(titleFile, input.title.toUpperCase());
@@ -141,7 +144,7 @@ export async function render(input: RenderInput): Promise<string> {
       await writeFile(cardFile, s.text.toUpperCase());
       graph.push(
         `color=c=black:s=1280x720:r=${FPS}:d=${(frames[i] / FPS + 0.1).toFixed(3)},trim=end_frame=${frames[i]},` +
-          `drawtext=fontfile=${quote(font)}:textfile=${quote(cardFile)}:fontsize=84:fontcolor=white:` +
+          `drawtext=fontfile=${quote(font)}:textfile=${quote(cardFile)}:fontsize=84:fontcolor=${look.cardColor}:` +
           `x=(w-text_w)/2:y=(h-text_h)/2:alpha='min(1,t/0.25)',setsar=1,format=yuv420p[s${i}]`,
       );
     }
@@ -150,15 +153,14 @@ export async function render(input: RenderInput): Promise<string> {
   // Impacts kick the frame around for a moment and blow it out to white.
   const shake = impacts.map((t0) => `14*between(t,${t0.toFixed(3)},${(t0 + 0.4).toFixed(3)})*(1-(t-${t0.toFixed(3)})/0.4)`).join("+") || "0";
   const flash = impacts.map((t0) => `0.6*gte(t,${t0.toFixed(3)})*exp(-10*(t-${t0.toFixed(3)}))`).join("+") || "0";
-  const flicker = `0.015*sin(t*41)*sin(t*7.3)`;
+  const flicker = look.grain ? `0.015*sin(t*41)*sin(t*7.3)` : "0";
   const fadeIn = `if(lt(t,${titleAt}),0,min(1,(t-${titleAt})/0.6))`;
   graph.push(
     [
       segments.map((_, i) => `[s${i}]`).join("") + `concat=n=${segments.length}:v=1:a=0`,
       `scale=1332:750,crop=1280:720:x='26+(${shake})*sin(t*83)':y='15+(${shake})*cos(t*71)',setsar=1`,
-      `eq=contrast=1.08:saturation=0.85:brightness='min(0.8,${flicker}+${flash})':eval=frame`,
-      `vignette=PI/5`,
-      `noise=alls=10:allf=t+u`,
+      `eq=${look.grade}:brightness='min(0.8,${flicker}+${flash})':eval=frame`,
+      ...(look.grain ? [`vignette=PI/5`, `noise=alls=10:allf=t+u`] : []),
       // Letterbox bars, then darken the frame for the title card.
       `drawbox=x=0:y=0:w=iw:h=72:color=black:t=fill`,
       `drawbox=x=0:y=ih-72:w=iw:h=72:color=black:t=fill`,
@@ -173,10 +175,19 @@ export async function render(input: RenderInput): Promise<string> {
     const ms = Math.round(c.start * 1000);
     return `[${i + 1}:a]aformat=sample_rates=44100:channel_layouts=stereo,adelay=${ms}|${ms},volume=${c.volume}[a${i}]`;
   });
-  const mix =
-    clips.map((_, i) => `[a${i}]`).join("") +
-    `amix=inputs=${clips.length}:normalize=0:duration=longest,` +
-    `atrim=0:${duration.toFixed(2)},afade=t=out:st=${(duration - 1.2).toFixed(2)}:d=1.2,loudnorm=I=-14:TP=-1.5,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a]`;
+  // Duck the effects and score hard under the narrator so every line stays clear
+  // (mix keeps ~5% dry, so the bed dips ~20 dB instead of vanishing),
+  // then let them swell back in the gaps between lines.
+  const voices = clips.flatMap((c, i) => (c.voice ? [`[a${i}]`] : []));
+  const bed = clips.flatMap((c, i) => (c.voice ? [] : [`[a${i}]`]));
+  const mix = [
+    // Pad the narration to full length: sidechaincompress stalls if its key ends first.
+    `${voices.join("")}amix=inputs=${voices.length}:normalize=0,apad=whole_dur=${duration.toFixed(2)},asplit[voice][key]`,
+    `${bed.join("")}amix=inputs=${bed.length}:normalize=0[bed]`,
+    `[bed][key]sidechaincompress=threshold=0.005:ratio=20:attack=5:release=400:level_sc=2:mix=0.95[ducked]`,
+    `[voice][ducked]amix=inputs=2:normalize=0:duration=longest,` +
+      `atrim=0:${duration.toFixed(2)},afade=t=out:st=${(duration - 1.2).toFixed(2)}:d=1.2,loudnorm=I=-14:TP=-1.5,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a]`,
+  ].join(";\n");
 
   const filterScript = path.join(dir, "filter.txt");
   await writeFile(filterScript, [...graph, ...audio, mix].join(";\n"));
@@ -185,7 +196,7 @@ export async function render(input: RenderInput): Promise<string> {
   await run(
     ffmpegPath,
     [
-      "-y", "-loglevel", "error",
+      "-nostdin", "-y", "-loglevel", "error",
       "-i", image,
       ...clips.flatMap((c) => (c.loop ? ["-stream_loop", "-1", "-i", c.file] : ["-i", c.file])),
       "-filter_complex_script", filterScript,
