@@ -25,7 +25,17 @@ One photo of a puppy in, *The Long Stare* out:
 
 ## The app
 
-![Twelve web UI: a dropped photo, the rendered trailer and its script](docs/screenshot.png)
+Pick a style and drop in a photo:
+
+![Twelve web UI: the style picker and the drop area](docs/create.jpg)
+
+The finished trailer takes over the stage, with its script, a download link and a button to start the next one:
+
+![A finished trailer, "The Long Stare", on its title card above its narration](docs/app-trailer.jpg)
+
+Every trailer you make is kept in the library below. Star the ones worth keeping, filter down to your favourites, or delete the rest for good:
+
+![The library: a grid of past trailers with favourite stars](docs/app-library.jpg)
 
 ## Styles
 
