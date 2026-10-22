@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/logo.svg" width="96" height="96" alt="Twelve logo" />
+  <img src="docs/logo.svg" width="480" alt="Twelve" />
 </p>
-
-<h1 align="center">Twelve</h1>
 
 <p align="center">Drop in any photo and get back a dramatic movie trailer, with narration, sound effects and a score.<br/>Built with <a href="https://elevenlabs.io">ElevenLabs</a> and <a href="https://claude.com">Claude</a>.</p>
 

@@ -1,32 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Twelve logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240" role="img" aria-label="Twelve">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <radialGradient id="glow" cx="0.5" cy="0" r="0.9" gradientTransform="scale(1 1.6)">
       <stop offset="0" stop-color="#2a1f0e"/>
       <stop offset="1" stop-color="#0b0a09"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f6d27f"/>
-      <stop offset="1" stop-color="#d9962c"/>
-    </linearGradient>
-    <clipPath id="frame"><rect width="160" height="160" rx="36"/></clipPath>
+    </radialGradient>
   </defs>
-  <g clip-path="url(#frame)">
-    <rect width="160" height="160" fill="url(#bg)"/>
-    <rect width="160" height="24" fill="#000" opacity=".6"/>
-    <rect y="136" width="160" height="24" fill="#000" opacity=".6"/>
-  </g>
-  <g fill="url(#gold)">
-    <rect x="22.0" y="73.0" width="6" height="14" rx="3"/>
-    <rect x="32.0" y="67.0" width="6" height="26" rx="3"/>
-    <rect x="42.0" y="60.0" width="6" height="40" rx="3"/>
-    <rect x="52.0" y="52.0" width="6" height="56" rx="3"/>
-    <rect x="62.0" y="44.0" width="6" height="72" rx="3"/>
-    <rect x="72.0" y="37.0" width="6" height="86" rx="3"/>
-    <rect x="82.0" y="35.0" width="6" height="90" rx="3"/>
-    <rect x="92.0" y="43.0" width="6" height="74" rx="3"/>
-    <rect x="102.0" y="51.0" width="6" height="58" rx="3"/>
-    <rect x="112.0" y="59.0" width="6" height="42" rx="3"/>
-    <rect x="122.0" y="66.0" width="6" height="28" rx="3"/>
-    <rect x="132.0" y="72.0" width="6" height="16" rx="3"/>
-  </g>
+  <rect width="800" height="240" rx="20" fill="url(#glow)"/>
+  <g fill="#f2ede4"><path transform="translate(188.42 185.00) scale(0.07386 -0.07386)" d="M229 0V1422H20V1760H790V1422H581V0Z"/><path transform="translate(248.25 185.00) scale(0.07386 -0.07386)" d="M216 0 27 1760H371L468 649L567 1760H895L989 649L1083 1760H1431L1239 0H817L729 847L645 0Z"/><path transform="translate(355.94 185.00) scale(0.07386 -0.07386)" d="M78 0V1760H782V1420H436V1077H768V746H436V343H805V0Z"/><path transform="translate(418.21 185.00) scale(0.07386 -0.07386)" d="M78 0V1760H430V300H792V0Z"/><path transform="translate(478.33 185.00) scale(0.07386 -0.07386)" d="M240 0 23 1761H358L487 563L602 1761H937L720 0Z"/><path transform="translate(549.32 185.00) scale(0.07386 -0.07386)" d="M78 0V1760H782V1420H436V1077H768V746H436V343H805V0Z"/></g>
 </svg>
